@@ -122,12 +122,14 @@ public class GamePanel extends JPanel implements Runnable
 		g.drawString(msg,  x, y);
 	} // end of gameOverMessage()
 	
+	/*
 	public void paintComponent(Graphics g)
 	{
 		super.paintComponent(g);
 		if (dbImage != null)
 			g.drawImage(dbImage, 0, 0, null);
 	}
+	*/
 	
 	public void paintScreen()
 	// actively render the buffer image to the screen
