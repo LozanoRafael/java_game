@@ -4,6 +4,11 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 import javax.swing.JPanel;
 
@@ -25,8 +30,17 @@ public class GamePanel extends JPanel implements Runnable
 		setBackground(Color.white); // white background
 		setPreferredSize( new Dimension(PWIDTH, PHEIGHT));
 		
+		setFocusable(true);
+		requestFocus();
+		readyForTermination();
 		// create game components
 		// ...
+		
+		//listen for mouse presses
+		addMouseListener( new MouseAdapter() {
+			public void mousePressed(MouseEvent e)
+			{ testPress(e.getX(), e.getY()); }
+		});
 	} // end of GamePanel()
 	
 	public void addNotify() 
@@ -56,7 +70,8 @@ public class GamePanel extends JPanel implements Runnable
 		while(running) {
 			gameUpdate(); // game state is updated
 			gameRender(); // render to a buffer
-			repaint(); // paint with the buffer
+			// repaint(); // paint with the buffer
+			paintScreen(); // draw buffer to screen
 			
 			try {
 				Thread.sleep(20); // sleep a bit
@@ -113,6 +128,49 @@ public class GamePanel extends JPanel implements Runnable
 		if (dbImage != null)
 			g.drawImage(dbImage, 0, 0, null);
 	}
+	
+	public void paintScreen()
+	// actively render the buffer image to the screen
+	{
+		Graphics g;
+		try {
+			g = this.getGraphics(); // get the panel's graphic context
+			if((g != null) && (dbImage != null))
+				g.drawImage(dbImage, 0, 0, null);
+			Toolkit.getDefaultToolkit().sync(); // sync the display on some systems
+			g.dispose();
+		}
+		catch(Exception e)
+		{
+			System.out.println("Graphics context error: " + e);
+		}
+	} // end of paintScreen()
+	
+	private void readyForTermination()
+	{
+		addKeyListener( new KeyAdapter() {
+		// listen for esc, q, end, ctrl-c
+			public void keyPressed(KeyEvent e)
+			{
+				int keyCode = e.getKeyCode();
+				if((keyCode == KeyEvent.VK_ESCAPE)||
+					(keyCode == KeyEvent.VK_Q)||
+					(keyCode == KeyEvent.VK_END)||
+					((keyCode == KeyEvent.VK_C)&&e.isControlDown())){
+					running = false;
+				}
+			}
+		});
+	} // end of readyForTermination()
+	
+	private void testPress(int x, int y)
+	// is (x,y) important to the game?
+	{
+		if(!gameOver) {
+			// do something
+		}
+	}
+	
 	// more methods, explained later...
 	
 } // end of GamePanel class
