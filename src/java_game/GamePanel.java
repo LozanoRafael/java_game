@@ -22,6 +22,17 @@ public class GamePanel extends JPanel implements Runnable
 	
 	private volatile boolean gameOver = false; // for game termination
 	
+	private static final int NO_DELAYS_PER_YIELD = 16;
+	/* Number of frames with a delay of 0 ms before the
+	 * animation thread yields to other running threads.
+	 */
+	
+	private static int MAX_FRAME_SKIPS = 5;
+	// no. of frames that can be skipped in any one animation loop
+	// i.e the games state is updated but not rendered
+	
+	private volatile boolean isPaused = false;
+	
 	// more variables, explained later
 	// :
 	
@@ -63,9 +74,25 @@ public class GamePanel extends JPanel implements Runnable
 	// called by the user to stop execution
 	{ running = false; }
 	
+	public void pauseGame()
+	{ isPaused = true; }
+	
 	public void run()
-	/* Repeatedly update, render, sleep */
+	/* Repeatedly update, render, sleep so loop takes close 
+	 * to period nsecs. Sleep inaccuracies are handled.
+	 * The timing calculation use the System.nanoTime()
+	 * 
+	 * Overruns in update/renders will cause extra updates
+	 * to be carried out so UPS tild==requested FPS
+	 * */
 	{
+		long beforeTime, afterTime, timeDiff, sleepTime;
+		long overSleepTime = 0L;
+		int noDelays = 0;
+		long excess = 0L;
+		
+		beforeTime = System.nanoTime();
+		
 		running = true;
 		while(running) {
 			gameUpdate(); // game state is updated
@@ -73,17 +100,49 @@ public class GamePanel extends JPanel implements Runnable
 			// repaint(); // paint with the buffer
 			paintScreen(); // draw buffer to screen
 			
-			try {
-				Thread.sleep(20); // sleep a bit
-			} 
-			catch (InterruptedException ex) {}
-			System.exit(0); // so enclosing JFrame/JApplet exits
-		} // end of run()
-	}
+			afterTime = System.nanoTime();
+			timeDiff = afterTime - beforeTime;
+			sleepTime = (period - timeDiff) - overSleepTime; // time left in this loop
+			
+			if(sleepTime > 0) { // some time left in this cycle
+				try {
+					Thread.sleep(sleepTime/1000000L); // nano -> ms
+				} 
+				catch (InterruptedException ex) {}
+				overSleepTime = (System.nanoTime() - afterTime) - sleepTime;
+			}else { // sleepTime <= 0; frame took longer than the period
+				excess -= sleepTime; // store excess time value
+				overSleepTime = 0L;
+				if (++noDelays >= NO_DELAYS_PER_YIELD) {
+					Thread.yield();
+					noDelays = 0;
+				}
+			}
+			beforeTime = System.nanoTime();
+			
+			/* If frame animation is taking too long, update the game state
+			 * without rendering it, to get the upadtes/sec nearer to
+			 * the required FPS. 
+			 */
+			int skips = 0;
+			while((excess > period) && (skips < MAX_FRAME_SKIPS)) {
+				excess -= period;
+				gameUpdate(); // update state but don't render
+				skips++;
+			}
+		}
+			
+		System.exit(0); // so enclosing JFrame/JApplet exits
+		 
+	} // end of run()
+	
+	public void resumeGame()
+	{ isPaused = false; }
 	
 	private void gameUpdate()
 	{
-		if (!gameOver) // update game state...
+		if (!isPaused && !gameOver) 
+			// update game state...
 	}
 	
 	// global variables for off-screen rendering
